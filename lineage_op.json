@@ -1,0 +1,34 @@
+{
+   "combined_model": {
+      "policy_type": {
+         "policy_violation_with_name": [
+            "policy_type"
+         ]
+      },
+      "alias": {
+         "sample_policy_contract_mv": [
+            "alias"
+         ]
+      }
+   },
+   "policy_violation_with_name": {
+      "policy_type": {
+         "policies": [
+            "type"
+         ]
+      }
+   },
+   "sample_policy_contract_mv": {
+      "alias": {
+         "contract_resources": [
+            "alias"
+         ]
+      }
+   },
+   "policies": [
+      "type"
+   ],
+   "contract_resources": [
+      "alias"
+   ]
+}
