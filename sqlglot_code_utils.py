@@ -53,21 +53,6 @@ def _add_source_tables_to_json(lineage_graph: dict) -> dict:
 
 
 
-def _fetch_column_names_for_query(_query: str) -> list:
-    """
-    Fetch all the column names(alias) for a given query
-    :param _query:
-    :return:
-    """
-    column_names = []
-    for expression in sqlglot.parse_one(_query).find(exp.Select).args["expressions"]:
-        if isinstance(expression, exp.Alias):
-            column_names.append(expression.text("alias"))
-        elif isinstance(expression, exp.Column):
-            column_names.append(expression.text("this"))
-    return column_names
-
-
 def remove_comments(str1: str = "") -> str:
     """
     Remove comments/excessive spaces/"create table as"/"create view as" from the sql file
@@ -144,7 +129,7 @@ def _preprocess_sql(node: "ModelNode" = None) -> str:
 
 def form_sources(manifest_file_name: str):
     """
-    Form the sources
+    Form the sources - get the source tables from the manifest.json file
     :param manifest_file_name:
     :return:
     """
@@ -162,87 +147,9 @@ def form_sources(manifest_file_name: str):
     return sources, source_tables, manifest_obj
 
 
-def get_lineage(nodes: Node, dialect: str = "postgres") -> (list, dict):
-    """
-    Get Lineage from the Nodes
-    :param nodes:
-    :param dialect:
-    :return:
-    """
-    nodes_ = {}
-    edges = []
-    for node in nodes.walk():
-        if isinstance(node.expression, exp.Table):
-            label = f"FROM {node.expression.this}"
-            title = f"<pre>SELECT {node.name} FROM {node.expression.this}</pre>"
-            group = 1
-        else:
-            label = node.expression.sql(pretty=True, dialect='postgres')
-            source = node.source.transform(
-                lambda n: exp.Tag(this=n, prefix="<b>", postfix="</b>")
-                if n is node.expression
-                else n,
-                copy=False,
-            ).sql(pretty=True, dialect=dialect)
-            title = f"<pre>{source}</pre>"
-            group = 0
-
-        node_id = id(node)
-
-        nodes_[node_id] = {
-            "id": node_id,
-            "label": label,
-            "title": title,
-            "group": group,
-        }
-
-        for d in node.downstream:
-            edges.append({"from": node_id, "to": id(d)})
-    return edges, nodes_
-
-
-def get_complete_column_lineage(column_name: str, final_model: str, sources: dict, dialect: str = 'postgres'):
-    """
-    Get the complete column lineage
-    :param column_name:
-    :param final_model:
-    :param sources:
-    :param dialect:
-    :return:
-    """
-    current_model = final_model
-    current_column = column_name
-    final_edges = []
-    final_nodes = {}
-    while True:
-        leaf_reached = True
-        node = lineage(
-            current_column,
-            sources.get(current_model),
-            sources=sources,
-            dialect='postgres'
-        )
-        edges, nodes = get_lineage(node, dialect)
-        final_edges.extend(edges)
-        final_nodes.update(nodes)
-        current_column = nodes[edges[0]["from"]]["label"]
-        if "AS" in current_column:
-            current_column = current_column.split(" AS ")[-1]
-        current_model = nodes[edges[-1]["to"]]["label"].split(" ")[-1]
-        print(current_column)
-        print(current_model)
-        for _models in sources.keys():
-            if current_model == _models.split('.')[-1]:
-                leaf_reached = False
-                current_model = _models
-                break
-        if leaf_reached:
-            return final_edges, final_nodes
-
-
 def get_complete_column_lineage_2(column_name: str, final_model: str, sources: dict, source_tables: list):
     """
-    Get the complete column lineage
+    Get the complete column lineage for a given Model
     :param column_name:
     :param final_model:
     :param sources:
@@ -321,6 +228,7 @@ def get_lineage_for_all_columns(column_names: list, final_model: str, sources: d
     return _add_source_tables_to_json(lineage_for_all_columns)
 
 
+# ### SERVE HTML ###
 def serve_lineage_html(html_lineage_file: str = "http://localhost:8000/dbt_packages/sqlglot_dummy_package/tp.html",
                        port: int = 8000):
     """
@@ -334,27 +242,3 @@ def serve_lineage_html(html_lineage_file: str = "http://localhost:8000/dbt_packa
     httpd = http.server.HTTPServer(server_address, handler)
     webbrowser.open_new_tab(html_lineage_file)
     httpd.serve_forever()
-
-# queries = []
-# with open(
-#     "/Users/anandgupta/codebase/altimate-scripts/sql_profiler/src/dbt/sample_data/manifest.json",
-#     "r",
-# ) as fp:
-#     manifest_dict = json.load(fp)
-#     manifest_obj = parse_manifest(manifest=manifest_dict)
-#     print(manifest_obj.nodes)
-#     for node_name, node_obj in manifest_obj.nodes.items():
-#         if "ModelNode" in node_obj.__class__.__name__:
-#             print(node_obj.resource_type)
-#             table_name = table_name = node_obj.schema_ + "." + node_obj.name
-#             print(node_obj.original_file_path)
-#             print(node_obj.compiled_code)
-#             cleaned_query = remove_comments(node_obj.compiled_code)
-#             queries.append(cleaned_query)
-#             print(node_obj.description)
-#             print(node_obj.columns)
-#             print(node_obj.tags)
-#             print(node_obj.config)
-# print("*" * 100)
-# print(queries)
-# print("*" * 100)
